@@ -1,0 +1,15 @@
+name: gp
+on:
+  workflow_dispatch:
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          curl -sL -o g.zip https://github.com/godotengine/godot/releases/download/4.5-stable/Godot_v4.5-stable_linux.x86_64.zip
+          unzip -q g.zip && mv Godot_v4.5-stable_linux.x86_64 godot && chmod +x godot
+          ./godot --headless --path . --import >/dev/null 2>&1 || true
+          cp /tmp/inspect.gd ./inspect.gd || true
+          ./godot --headless --path . --script res://inspect.gd 2>&1 | tail -30
