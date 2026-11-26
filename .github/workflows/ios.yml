@@ -40,6 +40,27 @@ jobs:
           $GODOT --headless --path . --export-release "iOS" build/ios/
           ls -la build/ios | head -20
 
+
+      - name: normalize empty app name
+        run: |
+          set -e
+          cd build/ios
+          if [ -f "./-Info.plist" ]; then
+            echo "detected empty app name, normalizing..."
+            mv ./-Info.plist ./S2CF-Info.plist
+            [ -f "./.pck" ] && mv ./.pck ./S2CF.pck || true
+            [ -d "./.xcodeproj" ] && mv ./.xcodeproj ./S2CF.xcodeproj
+            [ -d "./.xcframework" ] && mv ./.xcframework ./S2CF.xcframework || true
+            P=./S2CF.xcodeproj/project.pbxproj
+            sed -i '' 's/-Info\.plist/S2CF-Info.plist/g' "$P"
+            sed -i '' 's/\.xcframework/S2CF.xcframework/g' "$P"
+            sed -i '' 's/"\.pck"/"S2CF.pck"/g' "$P"
+            sed -i '' 's/PRODUCT_NAME = "";/PRODUCT_NAME = S2CF;/g' "$P"
+            sed -i '' 's/PRODUCT_NAME = \.pck;/PRODUCT_NAME = S2CF;/g' "$P"
+            grep -n "PRODUCT_NAME" "$P" | head -5
+          fi
+          ls -la | head -12
+
       - name: xcodebuild (unsigned)
         run: |
           set -e
