@@ -47,6 +47,9 @@ jobs:
           PROJ=$(find . -maxdepth 1 -name "*.xcodeproj" -type d | head -1)
           echo "project=$PROJ"
           SCHEME=$(basename "$PROJ" .xcodeproj)
+          if [ -z "$SCHEME" ]; then
+            SCHEME=$(grep -m1 'productName = ' "$PROJ/project.pbxproj" | sed 's/.*productName = \([^;]*\);/\1/' | tr -d '"')
+          fi
           echo "scheme=$SCHEME"
           xcodebuild -project "$PROJ" -scheme "$SCHEME" \
             -sdk iphoneos -configuration Release \
