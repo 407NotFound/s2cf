@@ -40,7 +40,7 @@ jobs:
             ~/.local/bin
             ~/.local/share/omarchy-apple-dev
             ~/pymobile3-venv
-          key: omarchy-sdk-${{ runner.os }}-${{ hashFiles('.github/workflows/xtool.yml') }}
+          key: omarchy-sdk-v1
 
       - name: install toolchain
         if: steps.cache.outputs.cache-hit != 'true'
@@ -52,23 +52,36 @@ jobs:
           chmod +x install-toolchain.sh
           timeout 3000 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -25
 
-      - name: build template app
+      - name: build apps
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           ulimit -n 65536 || true
-          xtool new S2CF 2>&1 | tail -5
-          cd S2CF
-          xtool dev build 2>&1 | tail -25
-          ls -la xtool/ 2>/dev/null || ls -la
+          echo "== template =="
+          printf '1\n' | xtool new S2CF 2>&1 | tail -3
+          (cd S2CF && xtool dev build 2>&1 | tail -12) || true
+
+          echo "== webview shell =="
+          printf '1\n' | xtool new S2CFWeb 2>&1 | tail -3
+          find S2CFWeb/Sources -name '*.swift' -delete
+          mkdir -p S2CFWeb/Sources/S2CFWeb
+          cp ios-app/S2CFApp.swift S2CFWeb/Sources/S2CFWeb/Main.swift
+          (cd S2CFWeb && xtool dev build 2>&1 | tail -25) || true
+
+          echo "== apps found =="
+          find . -maxdepth 4 -name "*.app" -type d
 
       - name: package unsigned ipa
         run: |
           set -e
-          APP=$(find . -maxdepth 4 -name "*.app" -type d | head -1)
-          echo "app=$APP"
-          mkdir -p out/Payload
-          cp -R "$APP" out/Payload/
-          cd out && zip -qry S2CF-template-unsigned.ipa Payload && ls -lh *.ipa
+          mkdir -p out
+          for APP in $(find . -maxdepth 4 -name "*.app" -type d); do
+            NAME=$(basename "$APP" .app)
+            rm -rf out/Payload && mkdir -p out/Payload
+            cp -R "$APP" out/Payload/
+            (cd out && zip -qry "${NAME}-unsigned.ipa" Payload)
+            echo "packed ${NAME}-unsigned.ipa"
+          done
+          ls -lh out/*.ipa || echo "NO IPA"
 
       - uses: actions/upload-artifact@v4
         with:
