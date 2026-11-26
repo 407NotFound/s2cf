@@ -59,6 +59,7 @@ jobs:
             sed -i '' 's|"\ .pck"|"S2CF.pck"|g' "$P"
             sed -i '' 's|"\.pck"|"S2CF.pck"|g' "$P"
             sed -i '' 's|PRODUCT_NAME = "";|PRODUCT_NAME = S2CF;|g' "$P"
+            sed -i '' 's|"/S2CF-Info.plist"|"S2CF-Info.plist"|g' "$P"
             grep -c "MoltenVK.xcframework" "$P" || true
             grep -n "S2CF-Info.plist\|S2CF.xcframework\|PRODUCT_NAME" "$P" | head -8
           fi
@@ -76,15 +77,15 @@ jobs:
           echo "target=$TARGET"
           xcodebuild -project "$PROJ" -target "$TARGET" \
             -sdk iphoneos -configuration Release \
-            -derivedDataPath ../dd \
+            OBJROOT=../obj SYMROOT=../sym \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             build
-          find ../dd/Build/Products -maxdepth 2 -name "*.app"
+          find ../sym -maxdepth 3 -name "*.app"
 
       - name: package ipa
         run: |
           set -e
-          APP=$(find build/dd/Build/Products -maxdepth 2 -name "*.app" | head -1)
+          APP=$(find build/sym -maxdepth 3 -name "*.app" | head -1)
           echo "app=$APP"
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/
