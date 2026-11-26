@@ -1,0 +1,12 @@
+name: macprobe2
+on:
+  workflow_dispatch:
+jobs:
+  m13:
+    runs-on: macos-13
+    steps:
+      - run: sw_vers; xcodebuild -version
+  mlatest:
+    runs-on: macos-latest
+    steps:
+      - run: sw_vers; xcodebuild -version
