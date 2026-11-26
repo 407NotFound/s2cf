@@ -5,20 +5,21 @@ jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - name: disk
-        run: df -h / | tail -1
-      - name: clone
+      - name: deps
         run: |
-          git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
-          ls omarchy-apple-dev | head -20
-      - name: try install (no-xcode, user-only)
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq liblzma-dev libssl-dev libcurl4-openssl-dev zlib1g-dev pkg-config libxml2-dev libsqlite3-dev
+      - name: clone
+        run: git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
+      - name: install toolchain
         run: |
           cd omarchy-apple-dev
           chmod +x install-toolchain.sh
-          timeout 900 ./install-toolchain.sh --mode no-xcode --user-only || echo "INSTALL_EXIT=$?"
+          timeout 1500 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -60
+          echo "EXIT=${PIPESTATUS[0]}"
       - name: versions
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           swift --version || true
           xtool --version || true
-          ls -la ~/.local/bin 2>/dev/null | head
+          ls ~/.local/bin 2>/dev/null | head
