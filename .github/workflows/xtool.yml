@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-toolchain:
+  app:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - name: deps
         run: |
@@ -27,27 +27,50 @@ jobs:
             git clone --depth 1 https://github.com/libimobiledevice/$r
           done
           for r in libplist libimobiledevice-glue libtatsu libimobiledevice; do
-            echo "==== building $r"
             (cd $r && ./autogen.sh --prefix=$PREFIX >/dev/null 2>&1 && make -j$(nproc) >/dev/null 2>&1 && sudo make install >/dev/null 2>&1)
             sudo ldconfig
-            pkg-config --modversion ${r%-glue} 2>/dev/null || true
           done
           pkg-config --modversion libimobiledevice-1.0
 
-      - name: install toolchain (no-xcode)
+      - name: cache check
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/bin
+            ~/.local/share/omarchy-apple-dev
+            ~/pymobile3-venv
+          key: omarchy-sdk-${{ runner.os }}-${{ hashFiles('.github/workflows/xtool.yml') }}
+
+      - name: install toolchain
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           export PREFIX=/usr/local/usr
           export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
           git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
           cd omarchy-apple-dev
           chmod +x install-toolchain.sh
-          timeout 3000 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -80
-          echo "===EXIT==="
+          timeout 3000 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -25
 
-      - name: report
+      - name: build template app
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          swift --version || true
-          xtool --version || true
-          ls ~/.local/bin ~/pymobile3-venv/bin 2>/dev/null | head -20
-          ls ~/.config/swiftpm/swift-sdks 2>/dev/null || true
+          ulimit -n 65536 || true
+          xtool new S2CF 2>&1 | tail -5
+          cd S2CF
+          xtool dev build 2>&1 | tail -25
+          ls -la xtool/ 2>/dev/null || ls -la
+
+      - name: package unsigned ipa
+        run: |
+          set -e
+          APP=$(find . -maxdepth 4 -name "*.app" -type d | head -1)
+          echo "app=$APP"
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          cd out && zip -qry S2CF-template-unsigned.ipa Payload && ls -lh *.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S2CF-ipa
+          path: out/*.ipa
