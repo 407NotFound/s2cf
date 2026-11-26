@@ -46,20 +46,25 @@ jobs:
           set -e
           cd build/ios
           if [ -f "./-Info.plist" ]; then
-            echo "detected empty app name, normalizing..."
+            echo "empty app name detected -> normalizing"
             mv ./-Info.plist ./S2CF-Info.plist
             [ -f "./.pck" ] && mv ./.pck ./S2CF.pck || true
             [ -d "./.xcodeproj" ] && mv ./.xcodeproj ./S2CF.xcodeproj
             [ -d "./.xcframework" ] && mv ./.xcframework ./S2CF.xcframework || true
             P=./S2CF.xcodeproj/project.pbxproj
-            sed -i '' 's/-Info\.plist/S2CF-Info.plist/g' "$P"
-            sed -i '' 's/\.xcframework/S2CF.xcframework/g' "$P"
-            sed -i '' 's/"\.pck"/"S2CF.pck"/g' "$P"
-            sed -i '' 's/PRODUCT_NAME = "";/PRODUCT_NAME = S2CF;/g' "$P"
-            sed -i '' 's/PRODUCT_NAME = \.pck;/PRODUCT_NAME = S2CF;/g' "$P"
-            grep -n "PRODUCT_NAME" "$P" | head -5
+            # 只改“空名字”的引用，绝不能碰 MoltenVK.xcframework
+            sed -i '' 's|-Info\.plist|S2CF-Info.plist|g' "$P"
+            sed -i '' 's|"/\.xcframework|"/S2CF.xcframework|g' "$P"
+            sed -i '' 's|=\.xcframework;|=S2CF.xcframework;|g' "$P"
+            sed -i '' 's|"\ .pck"|"S2CF.pck"|g' "$P"
+            sed -i '' 's|"\.pck"|"S2CF.pck"|g' "$P"
+            sed -i '' 's|PRODUCT_NAME = "";|PRODUCT_NAME = S2CF;|g' "$P"
+            grep -c "MoltenVK.xcframework" "$P" || true
+            grep -n "S2CF-Info.plist\|S2CF.xcframework\|PRODUCT_NAME" "$P" | head -8
           fi
-          ls -la | head -12
+          ls -la | head -14
+          echo "---- targets ----"
+          xcodebuild -list -project "$(find . -maxdepth 1 -name '*.xcodeproj' -type d | head -1)" || true
 
       - name: xcodebuild (unsigned)
         run: |
@@ -67,12 +72,9 @@ jobs:
           cd build/ios
           PROJ=$(find . -maxdepth 1 -name "*.xcodeproj" -type d | head -1)
           echo "project=$PROJ"
-          SCHEME=$(basename "$PROJ" .xcodeproj)
-          if [ -z "$SCHEME" ]; then
-            SCHEME=$(grep -m1 'productName = ' "$PROJ/project.pbxproj" | sed 's/.*productName = \([^;]*\);/\1/' | tr -d '"')
-          fi
-          echo "scheme=$SCHEME"
-          xcodebuild -project "$PROJ" -scheme "$SCHEME" \
+          TARGET=$(basename "$PROJ" .xcodeproj)
+          echo "target=$TARGET"
+          xcodebuild -project "$PROJ" -target "$TARGET" \
             -sdk iphoneos -configuration Release \
             -derivedDataPath ../dd \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
