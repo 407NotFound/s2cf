@@ -1,0 +1,24 @@
+name: xtool
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: disk
+        run: df -h / | tail -1
+      - name: clone
+        run: |
+          git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
+          ls omarchy-apple-dev | head -20
+      - name: try install (no-xcode, user-only)
+        run: |
+          cd omarchy-apple-dev
+          chmod +x install-toolchain.sh
+          timeout 900 ./install-toolchain.sh --mode no-xcode --user-only || echo "INSTALL_EXIT=$?"
+      - name: versions
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          swift --version || true
+          xtool --version || true
+          ls -la ~/.local/bin 2>/dev/null | head
