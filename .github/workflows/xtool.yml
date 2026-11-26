@@ -54,31 +54,33 @@ jobs:
 
       - name: build apps
         run: |
-          set +e
           export PATH="$HOME/.local/bin:$PATH"
-          ulimit -n 65536
-          echo "===== xtool --help ====="
-          xtool --help 2>&1 | head -40
-          echo "===== xtool new --help ====="
-          xtool new --help 2>&1 | head -40
-          echo "===== xtool dev --help ====="
-          xtool dev --help 2>&1 | head -40
-          echo "===== try new with 1 + blank ====="
-          printf '1\n\n' | timeout 60 xtool new ProbeApp 2>&1 | tail -8
-          ls -la ProbeApp 2>/dev/null && echo "--- files ---" && find ProbeApp -maxdepth 3 | head -30
+          ulimit -n 65536 || true
+          echo "===== dev build help ====="
+          xtool dev build --help 2>&1 | head -25
+          echo "===== template ====="
+          xtool new S2CF --skip-setup 2>&1 | tail -3
+          (cd S2CF && xtool dev build 2>&1 | tail -20) || echo "TEMPLATE_BUILD_FAILED"
+          echo "===== webview shell ====="
+          xtool new S2CFWeb --skip-setup 2>&1 | tail -3
+          find S2CFWeb/Sources -name '*.swift' -delete 2>/dev/null || true
+          mkdir -p S2CFWeb/Sources/S2CFWeb
+          cp ios-app/S2CFApp.swift S2CFWeb/Sources/S2CFWeb/Main.swift
+          (cd S2CFWeb && xtool dev build 2>&1 | tail -30) || echo "SHELL_BUILD_FAILED"
+          echo "===== apps ====="
+          find . -maxdepth 5 -name "*.app" -type d || true
 
       - name: package unsigned ipa
         run: |
-          set -e
           mkdir -p out
-          for APP in $(find . -maxdepth 4 -name "*.app" -type d); do
+          for APP in $(find . -maxdepth 5 -name "*.app" -type d); do
             NAME=$(basename "$APP" .app)
             rm -rf out/Payload && mkdir -p out/Payload
             cp -R "$APP" out/Payload/
             (cd out && zip -qry "${NAME}-unsigned.ipa" Payload)
             echo "packed ${NAME}-unsigned.ipa"
           done
-          ls -lh out/*.ipa || echo "NO IPA"
+          ls -lh out/*.ipa 2>/dev/null || echo "NO_IPA_PRODUCED"
 
       - uses: actions/upload-artifact@v4
         with:
