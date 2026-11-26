@@ -25,6 +25,12 @@ jobs:
           mv /tmp/tpl/templates "$HOME/Library/Application Support/Godot/export_templates/4.5.stable"
           ls "$HOME/Library/Application Support/Godot/export_templates/4.5.stable" | head
 
+      - name: probe ios export options
+        run: |
+          strings -a /Applications/Godot.app/Contents/MacOS/Godot | grep -E "^application/" | sort -u | head -40
+          echo "---- project name ----"
+          strings -a /Applications/Godot.app/Contents/MacOS/Godot | grep -E "application/config/name" | sort -u | head -5
+
       - name: export xcode project
         run: |
           set -e
