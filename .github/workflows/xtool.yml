@@ -52,23 +52,24 @@ jobs:
           chmod +x install-toolchain.sh
           timeout 3000 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -25
 
-      - name: build apps
+      - name: probe sdk-free
         run: |
+          set +e
           export PATH="$HOME/.local/bin:$PATH"
-          ulimit -n 65536 || true
-          echo "===== dev build help ====="
-          xtool dev build --help 2>&1 | head -25
-          echo "===== template ====="
-          xtool new S2CF --skip-setup 2>&1 | tail -3
-          (cd S2CF && xtool dev build 2>&1 | tail -20) || echo "TEMPLATE_BUILD_FAILED"
-          echo "===== webview shell ====="
-          xtool new S2CFWeb --skip-setup 2>&1 | tail -3
-          find S2CFWeb/Sources -name '*.swift' -delete 2>/dev/null || true
-          mkdir -p S2CFWeb/Sources/S2CFWeb
-          cp ios-app/S2CFApp.swift S2CFWeb/Sources/S2CFWeb/Main.swift
-          (cd S2CFWeb && xtool dev build 2>&1 | tail -30) || echo "SHELL_BUILD_FAILED"
-          echo "===== apps ====="
-          find . -maxdepth 5 -name "*.app" -type d || true
+          cd omarchy-apple-dev 2>/dev/null || cd $(ls -d *_apple_dev* 2>/dev/null | head -1) 2>/dev/null
+          echo "PWD=$(pwd)"
+          ls -la | head -30
+          echo "===== sdk-free ====="
+          ls -la sdk-free 2>/dev/null | head -30
+          echo "===== README head ====="
+          head -80 sdk-free/README.md 2>/dev/null
+          echo "===== swiftc.sh help ====="
+          bash sdk-free/swiftc.sh --help 2>&1 | head -30
+          echo "===== hello C ====="
+          printf '#include <stdio.h>\nint main(){printf("hi\\n");return 0;}\n' > /tmp/t.c
+          bash sdk-free/swiftc.sh /tmp/t.c -o /tmp/t 2>&1 | head -20
+          ls -l /tmp/t 2>/dev/null && file /tmp/t 2>/dev/null
+          echo "PROBE_DONE"
 
       - name: package unsigned ipa
         run: |
@@ -77,10 +78,10 @@ jobs:
             NAME=$(basename "$APP" .app)
             rm -rf out/Payload && mkdir -p out/Payload
             cp -R "$APP" out/Payload/
-            (cd out && zip -qry "${NAME}-unsigned.ipa" Payload)
-            echo "packed ${NAME}-unsigned.ipa"
+            (cd out && zip -qry "${NAME}-unsigned.ipa" Payload) && echo "packed ${NAME}"
           done
-          ls -lh out/*.ipa 2>/dev/null || echo "NO_IPA_PRODUCED"
+          ls -lh out/*.ipa 2>/dev/null || echo "NO_IPA_YET"
+          exit 0
 
       - uses: actions/upload-artifact@v4
         with:
