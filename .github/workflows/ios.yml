@@ -30,7 +30,7 @@ jobs:
           set -e
           GODOT=/Applications/Godot.app/Contents/MacOS/Godot
           $GODOT --headless --path . --import || true
-          mkdir -p build
+          mkdir -p build/ios
           $GODOT --headless --path . --export-release "iOS" build/ios/
           ls -la build/ios | head -20
 
