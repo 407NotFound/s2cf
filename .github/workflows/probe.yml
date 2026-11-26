@@ -1,0 +1,15 @@
+name: probe
+on:
+  workflow_dispatch:
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          set -e
+          curl -sL -o g.zip https://github.com/godotengine/godot/releases/download/4.5-stable/Godot_v4.5-stable_linux.x86_64.zip
+          unzip -q g.zip && mv Godot_v4.5-stable_linux.x86_64 godot && chmod +x godot
+          echo "==== application/* keys ===="
+          strings -a godot | grep -E "^application/" | sort -u
+          echo "==== app_name ===="
+          strings -a godot | grep -iE "app_name|appstore_team|bundle_identifier" | sort -u | head -20
