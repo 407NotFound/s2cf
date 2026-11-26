@@ -1,0 +1,39 @@
+name: cf-inspect
+on:
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: install unitypy
+        run: pip install -q UnityPy pillow
+      - name: inspect
+        run: |
+          python - <<'PY'
+          import UnityPy, collections, os
+          for f in sorted(os.listdir('cf')):
+              p = os.path.join('cf', f)
+              print('='*30, f, os.path.getsize(p))
+              try:
+                  env = UnityPy.load(p)
+              except Exception as e:
+                  print('  load fail:', e); continue
+              types = collections.Counter()
+              names = []
+              for obj in env.objects:
+                  types[obj.type.name] += 1
+                  if obj.type.name in ('Mesh','AnimationClip','GameObject','AnimatorController','Avatar','Material','Texture2D'):
+                      try:
+                          d = obj.read()
+                          n = getattr(d, 'm_Name', None) or getattr(d, 'name', None)
+                          if n: names.append((obj.type.name, n))
+                      except Exception:
+                          pass
+              print('  types:', dict(types.most_common(12)))
+              for t, n in names[:25]:
+                  print('   ', t, '|', n)
+          PY
