@@ -20,18 +20,19 @@ jobs:
         run: |
           set -e
           export PREFIX=/usr/local/usr
+          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+          echo $PREFIX/lib | sudo tee /etc/ld.so.conf.d/usrlocalusr.conf
           cd /tmp
           for r in libplist libimobiledevice-glue libtatsu libimobiledevice; do
             git clone --depth 1 https://github.com/libimobiledevice/$r
           done
           for r in libplist libimobiledevice-glue libtatsu libimobiledevice; do
             echo "==== building $r"
-            (cd $r && ./autogen.sh --prefix=$PREFIX >/dev/null && make -j$(nproc) >/dev/null && sudo make install >/dev/null)
+            (cd $r && ./autogen.sh --prefix=$PREFIX >/dev/null 2>&1 && make -j$(nproc) >/dev/null 2>&1 && sudo make install >/dev/null 2>&1)
+            sudo ldconfig
+            pkg-config --modversion ${r%-glue} 2>/dev/null || true
           done
-          echo $PREFIX/lib | sudo tee /etc/ld.so.conf.d/usrlocalusr.conf
-          sudo ldconfig
-          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
-          pkg-config --modversion libimobiledevice
+          pkg-config --modversion libimobiledevice-1.0
 
       - name: install toolchain (no-xcode)
         run: |
