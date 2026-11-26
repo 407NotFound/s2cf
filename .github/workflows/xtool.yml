@@ -1,25 +1,52 @@
 name: xtool
 on:
   workflow_dispatch:
+
 jobs:
-  probe:
+  build-toolchain:
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - name: deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq liblzma-dev libssl-dev libcurl4-openssl-dev zlib1g-dev pkg-config libxml2-dev libsqlite3-dev libimobiledevice-dev libusbmuxd-dev libplist-dev libimobiledevice-glue-dev libusb-1.0-0-dev
-      - name: clone
-        run: git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
-      - name: install toolchain
+          sudo apt-get install -y -qq binutils build-essential ca-certificates cmake curl file \
+            gnupg2 libc6-dev libcurl4-openssl-dev libedit2 libfuse3-dev libbz2-dev libheif-dev \
+            libimobiledevice-dev liblzma-dev libncurses6 libncursesw6 libpython3-dev libssl-dev \
+            libtinfo6 libxml2-dev libz3-dev llvm pkg-config poppler-utils python3 python3-venv \
+            rsync unzip usbmuxd zip zlib1g-dev autoconf automake libtool
+
+      - name: build libimobiledevice stack
         run: |
+          set -e
+          export PREFIX=/usr/local/usr
+          cd /tmp
+          for r in libplist libimobiledevice-glue libtatsu libimobiledevice; do
+            git clone --depth 1 https://github.com/libimobiledevice/$r
+          done
+          for r in libplist libimobiledevice-glue libtatsu libimobiledevice; do
+            echo "==== building $r"
+            (cd $r && ./autogen.sh --prefix=$PREFIX >/dev/null && make -j$(nproc) >/dev/null && sudo make install >/dev/null)
+          done
+          echo $PREFIX/lib | sudo tee /etc/ld.so.conf.d/usrlocalusr.conf
+          sudo ldconfig
+          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+          pkg-config --modversion libimobiledevice
+
+      - name: install toolchain (no-xcode)
+        run: |
+          export PREFIX=/usr/local/usr
+          export PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+          git clone --depth 1 https://github.com/joshuaswarren/omarchy-apple-dev.git
           cd omarchy-apple-dev
           chmod +x install-toolchain.sh
-          timeout 1500 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -60
-          echo "EXIT=${PIPESTATUS[0]}"
-      - name: versions
+          timeout 3000 ./install-toolchain.sh --mode no-xcode --user-only 2>&1 | tail -80
+          echo "===EXIT==="
+
+      - name: report
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           swift --version || true
           xtool --version || true
-          ls ~/.local/bin 2>/dev/null | head
+          ls ~/.local/bin ~/pymobile3-venv/bin 2>/dev/null | head -20
+          ls ~/.config/swiftpm/swift-sdks 2>/dev/null || true
